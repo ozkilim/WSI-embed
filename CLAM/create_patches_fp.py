@@ -53,7 +53,6 @@ def filter_patches(save_path_hdf5, max_patches):
 		print("looking into file")
 		coords = np.array(h5_file['coords'])
 		num_coords = coords.shape[0]
-
 		attrs = dict(h5_file['coords'].attrs)
             
 		# Check if we need to sample the coordinates
@@ -84,18 +83,28 @@ def stitching(file_path, wsi_object, downscale = 64):
 	return heatmap, total_time
 
 def segment(WSI_object, seg_params = None, filter_params = None, mask_file = None):
-	### Start Seg Timer
-	start_time = time.time()
-	# Use segmentation file
-	if mask_file is not None:
-		WSI_object.initSegmentation(mask_file)
-	# Segment	
-	else:
-		WSI_object.segmentTissue(**seg_params, filter_params=filter_params)
+    ### Start Seg Timer
+    start_time = time.time()
+    # Use segmentation file
+    if mask_file is not None:
+        WSI_object.initSegmentation(mask_file)
+    # Segment
+    else:
+        WSI_object.segmentTissue(**seg_params, filter_params=filter_params)
 
-	### Stop Seg Timers
-	seg_time_elapsed = time.time() - start_time   
-	return WSI_object, seg_time_elapsed
+    ### Stop Seg Timers
+    seg_time_elapsed = time.time() - start_time   
+
+    # Add assertions to check segmentation was good
+    assert WSI_object.contours_tissue is not None, "Segmentation failed: No tissue contours found"
+    assert len(WSI_object.contours_tissue) > 0, "Segmentation failed: Empty tissue contours"
+    
+    # Check if the segmented area is reasonable (e.g., not too small or too large)
+    # total_area = sum(cv2.contourArea(contour) for contour in WSI_object.contours_tissue)
+    # total_image_area = WSI_object.level_dim[0][0] * WSI_object.level_dim[0][1]
+    # assert 0.01 <= total_area / total_image_area <= 0.99, "Segmentation result seems unreasonable: check parameters"
+
+    return WSI_object, seg_time_elapsed
 
 def patching(WSI_object, **kwargs):
 	### Start Patch Timer
@@ -111,7 +120,7 @@ def patching(WSI_object, **kwargs):
 	save_path_hdf5 = os.path.join(patch_save_dir, slide_id + '.h5')
 	# print(save_path_hdf5) # should exist at this point...
 
-	filter_patches(save_path_hdf5, max_patches) 
+	# filter_patches(save_path_hdf5, max_patches) 
 
 	### Stop Patch Timer
 	patch_time_elapsed = time.time() - start_time
@@ -180,7 +189,6 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 		# Inialize WSI
 		full_path = os.path.join(source, slide)
 		WSI_object = WholeSlideImage(full_path)
-
 		if use_default_params:
 			current_vis_params = vis_params.copy()
 			current_filter_params = filter_params.copy()
@@ -193,11 +201,14 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 			current_seg_params = {}
 			current_patch_params = {}
 
+			print("Using custom parameters for slide:", slide_id)
 
 			for key in vis_params.keys():
 				if legacy_support and key == 'vis_level':
 					df.loc[idx, key] = -1
 				current_vis_params.update({key: df.loc[idx, key]})
+			
+			print("Visualization parameters:", current_vis_params)
 
 			for key in filter_params.keys():
 				if legacy_support and key == 'a_t':
@@ -208,14 +219,20 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 					current_filter_params.update({key: adjusted_area})
 					df.loc[idx, key] = adjusted_area
 				current_filter_params.update({key: df.loc[idx, key]})
+			
+			print("Filter parameters:", current_filter_params)
 
 			for key in seg_params.keys():
 				if legacy_support and key == 'seg_level':
 					df.loc[idx, key] = -1
 				current_seg_params.update({key: df.loc[idx, key]})
+			
+			print("Segmentation parameters:", current_seg_params)
 
 			for key in patch_params.keys():
 				current_patch_params.update({key: df.loc[idx, key]})
+			
+			print("Patch parameters:", current_patch_params)
 
 		if current_vis_params['vis_level'] < 0:
 			if len(WSI_object.level_dim) == 1:
@@ -235,6 +252,9 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 				best_level = wsi.get_best_level_for_downsample(64)
 				current_seg_params['seg_level'] = best_level
 
+		print(f"Visualization level set to: {current_vis_params['vis_level']}")
+		print(f"Segmentation level set to: {current_seg_params['seg_level']}")
+
 		keep_ids = str(current_seg_params['keep_ids'])
 		if keep_ids != 'none' and len(keep_ids) > 0:
 			str_ids = current_seg_params['keep_ids']
@@ -249,6 +269,9 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 		else:
 			current_seg_params['exclude_ids'] = []
 
+		print("Keep IDs:", current_seg_params['keep_ids'])
+		print("Exclude IDs:", current_seg_params['exclude_ids'])
+
 		w, h = WSI_object.level_dim[current_seg_params['seg_level']] 
 		if w * h > 1e8:
 			print('level_dim {} x {} is likely too large for successful segmentation, aborting'.format(w, h))
@@ -258,15 +281,19 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 		df.loc[idx, 'vis_level'] = current_vis_params['vis_level']
 		df.loc[idx, 'seg_level'] = current_seg_params['seg_level']
 
+		assert df.loc[idx, 'vis_level'] >= 0, "Visualization level should not be negative"
+		assert df.loc[idx, 'seg_level'] >= 0, "Segmentation level should not be negative"
 
 		seg_time_elapsed = -1
 		if seg:
 			WSI_object, seg_time_elapsed = segment(WSI_object, current_seg_params, current_filter_params) 
+			print(f"Segmentation completed in {seg_time_elapsed:.2f} seconds")
 
 		if save_mask:
 			mask = WSI_object.visWSI(**current_vis_params)
 			mask_path = os.path.join(mask_save_dir, slide_id+'.jpg')
 			mask.save(mask_path)
+			print(f"Mask saved at: {mask_path}")
 
 		patch_time_elapsed = -1 # Default time
 		if patch:

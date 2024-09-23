@@ -1,0 +1,18 @@
+# Define base paths
+patch_size: 512
+step_size: 512
+patch_level: 0
+slide_ext: ".mrxs"
+model: "virchow_v2"
+
+# Fully expanded paths
+raw_slides_dir: "/tank/WSI_data/lung_spatial/figshare_collection_downloads"
+patch_save_dir: "/tank/WSI_data/lung_spatial/CLAM/20X/patches"
+csv_path: "/tank/WSI_data/lung_spatial/CLAM/20X/patches/process_list_autogen_no_zip.csv"
+feat_dir: "/tank/WSI_data/lung_spatial/CLAM/20X/virchow_v2"
+
+batch_size: 512
+max_patches: 3000000000
+cuda_devices_patch: "0,1,2"
+cuda_devices_embed: "0,1,2"
+preset: "CLAM/presets/lung_resection.csv"

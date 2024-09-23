@@ -19,4 +19,6 @@ WSI Embed automates the process of:
 
 To run the pipeline, use the following command:
 
+conda activate clam
+
 ./embed.sh configs/config.yaml

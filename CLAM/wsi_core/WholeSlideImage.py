@@ -110,6 +110,9 @@ class WholeSlideImage(object):
             hierarchy_1 = np.flatnonzero(hierarchy[:,1] == -1)
             all_holes = []
             
+            print(f"Number of contours: {len(contours)}")
+            print(f"Number of foreground contours: {len(hierarchy_1)}")
+            
             # loop through foreground contour indices
             for cont_idx in hierarchy_1:
                 # actual contour
@@ -123,10 +126,13 @@ class WholeSlideImage(object):
                 # actual area of foreground contour region
                 a = a - np.array(hole_areas).sum()
                 if a == 0: continue
+                print(a)
+                print(filter_params['a_t'])
                 if tuple((filter_params['a_t'],)) < tuple((a,)): 
                     filtered.append(cont_idx)
                     all_holes.append(holes)
 
+            print(f"Number of filtered contours: {len(filtered)}")
 
             foreground_contours = [contours[cont_idx] for cont_idx in filtered]
             
@@ -146,18 +152,25 @@ class WholeSlideImage(object):
 
                 hole_contours.append(filtered_holes)
 
+            print(f"Number of hole contours: {sum(len(holes) for holes in hole_contours)}")
+
             return foreground_contours, hole_contours
         
         img = np.array(self.wsi.read_region((0,0), seg_level, self.level_dim[seg_level]))
         img_hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)  # Convert to HSV space
         img_med = cv2.medianBlur(img_hsv[:,:,1], mthresh)  # Apply median blurring
         
+        print(f"Image shape: {img.shape}")
+        print(f"HSV image shape: {img_hsv.shape}")
+        print(f"Median blurred image shape: {img_med.shape}")
        
         # Thresholding
         if use_otsu:
             _, img_otsu = cv2.threshold(img_med, 0, sthresh_up, cv2.THRESH_OTSU+cv2.THRESH_BINARY)
         else:
             _, img_otsu = cv2.threshold(img_med, sthresh, sthresh_up, cv2.THRESH_BINARY)
+
+        print(f"Otsu thresholded image shape: {img_otsu.shape}")
 
         # Morphological closing
         if close > 0:
@@ -170,13 +183,20 @@ class WholeSlideImage(object):
         filter_params['a_t'] = filter_params['a_t'] * scaled_ref_patch_area
         filter_params['a_h'] = filter_params['a_h'] * scaled_ref_patch_area
         
+        print(f"Filter params: {filter_params}")
+        
         # Find and filter contours
         contours, hierarchy = cv2.findContours(img_otsu, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE) # Find contours 
         hierarchy = np.squeeze(hierarchy, axis=(0,))[:, 2:]
         if filter_params: foreground_contours, hole_contours = _filter_contours(contours, hierarchy, filter_params)  # Necessary for filtering out artifacts
 
+        assert len(foreground_contours) > 0, "No foreground contours found"
+
         self.contours_tissue = self.scaleContourDim(foreground_contours, scale)
         self.holes_tissue = self.scaleHolesDim(hole_contours, scale)
+
+        print(f"Number of tissue contours: {len(self.contours_tissue)}")
+        print(f"Number of hole contours: {len(self.holes_tissue)}")
 
         #exclude_ids = [0,7,9]
         if len(keep_ids) > 0:
@@ -186,6 +206,9 @@ class WholeSlideImage(object):
 
         self.contours_tissue = [self.contours_tissue[i] for i in contour_ids]
         self.holes_tissue = [self.holes_tissue[i] for i in contour_ids]
+
+        print(f"Final number of tissue contours: {len(self.contours_tissue)}")
+        print(f"Final number of hole contours: {len(self.holes_tissue)}")
 
     def visWSI(self, vis_level=0, color = (0,255,0), hole_color = (0,0,255), annot_color=(255,0,0), 
                     line_thickness=250, max_size=None, top_left=None, bot_right=None, custom_downsample=1, view_slide_only=False,
@@ -379,6 +402,7 @@ class WholeSlideImage(object):
 
     def process_contours(self, save_path, patch_level=0, patch_size=256, step_size=256, max_patches=None, slide_id=None,  **kwargs):
         save_path_hdf5 = os.path.join(save_path, str(self.name) + '.h5')
+
         print("Creating patches for: ", self.name, "...",)
         elapsed = time.time()
         n_contours = len(self.contours_tissue)
