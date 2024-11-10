@@ -126,10 +126,10 @@ def patching(WSI_object, **kwargs):
 	patch_time_elapsed = time.time() - start_time
 	return file_path, patch_time_elapsed
 
-
+	
 
 def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_dir, 
-				  patch_size = 256, step_size = 256, 
+				  microns_per_patch_edge=128, 
 				  seg_params = {'seg_level': -1, 'sthresh': 8, 'mthresh': 7, 'close': 4, 'use_otsu': False,
 				  'keep_ids': 'none', 'exclude_ids': 'none'},
 				  filter_params = {'a_t':100, 'a_h': 16, 'max_n_holes':8}, 
@@ -189,6 +189,14 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 		# Inialize WSI
 		full_path = os.path.join(source, slide)
 		WSI_object = WholeSlideImage(full_path)
+
+		# Dynamically create the corect patch size for the image given its scanner ground truth physical proterties
+		assert WSI_object.microns_per_pixel_x == WSI_object.microns_per_pixel_y
+		patch_size = int(microns_per_patch_edge/WSI_object.microns_per_pixel_x)
+		print("Patch size for this slide is", patch_size)
+		step_size = patch_size
+
+
 		if use_default_params:
 			current_vis_params = vis_params.copy()
 			current_filter_params = filter_params.copy()
@@ -333,9 +341,7 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 parser = argparse.ArgumentParser(description='seg and patch')
 parser.add_argument('--source', type = str,
 					help='path to folder containing raw wsi image files')
-parser.add_argument('--step_size', type = int, default=256,
-					help='step_size')
-parser.add_argument('--patch_size', type = int, default=256,
+parser.add_argument('--microns_per_patch_edge', type = int, default=128,
 					help='patch_size')
 parser.add_argument('--patch', default=False, action='store_true')
 parser.add_argument('--seg', default=False, action='store_true')
@@ -409,7 +415,7 @@ if __name__ == '__main__':
 	# print(parameters)
 
 	seg_times, patch_times = seg_and_patch(**directories, **parameters,
-											patch_size = args.patch_size, step_size=args.step_size, 
+											microns_per_patch_edge=args.microns_per_patch_edge, 
 											seg = args.seg,  use_default_params=False, save_mask = True, 
 											stitch= args.stitch,
 											patch_level=args.patch_level, 

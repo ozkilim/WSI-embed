@@ -14,8 +14,7 @@ run_clam_pipeline() {
   CUDA_VISIBLE_DEVICES=$cuda_devices_patch python CLAM/create_patches_fp.py \
     --source "$raw_slides_dir" \
     --save_dir "$patch_save_dir" \
-    --patch_size "$patch_size" \
-    --step_size "$step_size" \
+    --microns_per_patch_edge "$microns_per_patch_edge" \
     --preset "$preset" \
     --seg \
     --patch \
@@ -59,6 +58,9 @@ parse_yaml() {
 export OMP_NUM_THREADS=1
 
 
+
+
+
 # Check if config file is provided
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <config_file.yml>"
@@ -67,6 +69,30 @@ fi
 
 # Read configuration
 eval $(parse_yaml "$1")
+
+
+
+
+# TODO: somewthing that chacks the magnification before running and offer cli to pick ... or something ....
+# Load the first slide from the raw slides directory and find its magnification
+
+# Get the first slide path using your method
+# first_slide_path=$(ls "$raw_slides_dir" | head -1 2>/dev/null)
+# first_slide_path="$raw_slides_dir/$first_slide_path"
+# echo "First slide path: $first_slide_path"
+
+# # Call the Python script to get the magnification
+# slide_magnification=$(python3 get_magnification.py "$first_slide_path" 2>&1)
+
+# # Check if magnification was obtained
+# if [[ "$slide_magnification" != "Unknown" && "$slide_magnification" != Error* ]]; then
+#     echo "Successfully loaded the file and obtained the magnification."
+# else
+#     echo "Failed to load the file or obtain the magnification."
+#     echo "Error details: $slide_magnification"
+# fi
+
+# echo "Magnification of the first slide: $slide_magnification"
 
 # Run pipeline for the dataset
 run_clam_pipeline "$raw_slides_dir" "$patch_save_dir" "$csv_path" "$slide_ext" "$feat_dir"

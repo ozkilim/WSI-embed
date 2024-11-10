@@ -43,6 +43,9 @@ class WholeSlideImage(object):
         self.contours_tumor = None
         self.hdf5_file = None
 
+        self.microns_per_pixel_x = float(self.wsi.properties.get(openslide.PROPERTY_NAME_MPP_X, 0))
+        self.microns_per_pixel_y = float(self.wsi.properties.get(openslide.PROPERTY_NAME_MPP_Y, 0))
+
     def getOpenSlide(self):
         return self.wsi
 
