@@ -12,6 +12,7 @@ import pandas as pd
 from tqdm import tqdm
 import h5py
 from wsi_core.wsi_utils import save_hdf5
+import cv2
 
 def sample_coords(coords, max_patches, seed=42):
 	"""
@@ -47,33 +48,83 @@ def sample_coords(coords, max_patches, seed=42):
 	else:
 		return coords
 
-def filter_patches(save_path_hdf5, max_patches):  
 
-	with h5py.File(save_path_hdf5, 'r+') as h5_file:
-		print("looking into file")
-		coords = np.array(h5_file['coords'])
-		num_coords = coords.shape[0]
-		attrs = dict(h5_file['coords'].attrs)
-            
-		# Check if we need to sample the coordinates
-		if num_coords > max_patches:
-			print(f"Number of coordinates ({num_coords}) exceeds max_patches ({max_patches}). Sampling...")
-			sampled_coords = sample_coords(coords, max_patches)
-			
-			# Delete the existing 'coords' dataset
-			del h5_file['coords']
-			
-			# Flush changes to ensure dataset deletion
-			h5_file.flush()
-			
-			# Create a new 'coords' dataset with the sampled coordinates
-			new_coords = h5_file.create_dataset('coords', data=sampled_coords, compression='gzip')
-			
-			# Restore attributes
-			for key, value in attrs.items():
-				new_coords.attrs[key] = value
-		else:
-			print(f"Number of coordinates ({num_coords}) is within the limit. No sampling needed.")
+def is_marked(image_array):
+    # Convert image to BGR format if it's in RGB
+    if image_array.shape[-1] == 3:
+        img_bgr = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
+    else:
+        img_bgr = image_array  # Assuming it's already in BGR
+
+    # Convert to HSV color space
+    hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+
+    # Define red color range
+    lower_red1 = np.array([0, 70, 50])
+    upper_red1 = np.array([10, 255, 255])
+    lower_red2 = np.array([170, 70, 50])
+    upper_red2 = np.array([180, 255, 255])
+
+    # Define blue color range
+    lower_blue = np.array([100, 70, 50])
+    upper_blue = np.array([140, 255, 255])
+
+    # Create masks for red and blue colors
+    mask_red1 = cv2.inRange(hsv, lower_red1, upper_red1)
+    mask_red2 = cv2.inRange(hsv, lower_red2, upper_red2)
+    mask_red = cv2.bitwise_or(mask_red1, mask_red2)
+    mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
+
+    # Calculate the proportion of red and blue pixels
+    red_pixels = cv2.countNonZero(mask_red)
+    blue_pixels = cv2.countNonZero(mask_blue)
+    total_pixels = img_bgr.shape[0] * img_bgr.shape[1]
+
+    # Determine if the patch is marked
+    if (red_pixels + blue_pixels) / total_pixels > 0.05:  # Adjust threshold as needed
+        return True  # Patch has significant red or blue markings
+    return False  # Patch is acceptable
+
+
+
+def filter_patches(save_path_hdf5):  
+    with h5py.File(save_path_hdf5, 'r+') as h5_file:
+
+        print("Looking into file:", save_path_hdf5)
+        coords = np.array(h5_file['coords'])
+        num_coords = coords.shape[0]
+        attrs = dict(h5_file['coords'].attrs)
+        # Assuming patches are stored in 'imgs' dataset within the HDF5 file
+        imgs = h5_file['imgs']  # Adjust if your dataset name is different
+        # Initialize list of indices to keep
+        indices_to_keep = []
+        for idx in range(num_coords):
+            img = imgs[idx]  # Extract the image data
+
+            # Convert image to a format suitable for OpenCV
+            img_array = np.array(img)
+
+            # Check if the image has red or blue markings
+            if not is_marked(img_array):
+                indices_to_keep.append(idx)
+
+        # Now, filter the coords and imgs datasets
+        new_coords = coords[indices_to_keep, :]
+        new_imgs = imgs[indices_to_keep, :]
+
+        # Delete existing datasets
+        del h5_file['coords']
+        del h5_file['imgs']
+        h5_file.flush()
+
+        # Create new datasets with filtered data
+        new_coords_dataset = h5_file.create_dataset('coords', data=new_coords, compression='gzip')
+        new_imgs_dataset = h5_file.create_dataset('imgs', data=new_imgs, compression='gzip')
+
+        # Restore attributes
+        for key, value in attrs.items():
+            new_coords_dataset.attrs[key] = value
+
 
 def stitching(file_path, wsi_object, downscale = 64):
 	start = time.time()
@@ -119,8 +170,7 @@ def patching(WSI_object, **kwargs):
 
 	save_path_hdf5 = os.path.join(patch_save_dir, slide_id + '.h5')
 	# print(save_path_hdf5) # should exist at this point...
-
-	# filter_patches(save_path_hdf5, max_patches) 
+	# filter_patches(save_path_hdf5) 
 
 	### Stop Patch Timer
 	patch_time_elapsed = time.time() - start_time

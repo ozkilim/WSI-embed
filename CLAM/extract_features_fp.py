@@ -150,9 +150,6 @@ if __name__ == '__main__':
 			print("Error here")
 			print(e)
 				  
-				  
-		# print(output_file_path)
-
 		time_elapsed = time.time() - time_start
 		print('\ncomputing features for {} took {} s'.format(output_file_path, time_elapsed))
 

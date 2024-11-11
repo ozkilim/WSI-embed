@@ -160,7 +160,63 @@ class WholeSlideImage(object):
             return foreground_contours, hole_contours
         
         img = np.array(self.wsi.read_region((0,0), seg_level, self.level_dim[seg_level]))
+
         img_hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)  # Convert to HSV space
+
+        # Convert to HSV color space
+        remove_markings = True
+        if remove_markings:
+            ########### Detect red regions##############
+            lower_red1 = np.array([0, 100, 80])
+            upper_red1 = np.array([10, 255, 255])
+            lower_red2 = np.array([170, 100, 80])
+            upper_red2 = np.array([180, 255, 255])
+
+            mask_red1 = cv2.inRange(img_hsv, lower_red1, upper_red1)
+            mask_red2 = cv2.inRange(img_hsv, lower_red2, upper_red2)
+            mask_red = cv2.bitwise_or(mask_red1, mask_red2)
+
+            # Detect blue regions
+            lower_blue = np.array([100, 100, 80])
+            upper_blue = np.array([130, 255, 255])
+            mask_blue = cv2.inRange(img_hsv, lower_blue, upper_blue)
+
+            # Detect green regions
+            lower_green = np.array([35, 50, 50])  # Lower Hue, Saturation, and Value thresholds
+            upper_green = np.array([90, 255, 255])  # Higher Hue threshold to include more greens
+
+            mask_green = cv2.inRange(img_hsv, lower_green, upper_green)
+
+            # Detect off-white regions
+            low_saturation = 0
+            high_saturation = 30  # Adjust as needed
+            low_value = 200       # Adjust as needed
+            high_value = 255
+            mask_off_white = cv2.inRange(img_hsv, np.array([0, low_saturation, low_value]), np.array([179, high_saturation, high_value]))
+
+            # Detect black and near-black regions
+            low_value_black = 0
+            high_value_black = 80  # Adjusted to include near-black regions
+            mask_black = cv2.inRange(img_hsv, np.array([0, 0, low_value_black]), np.array([179, 255, high_value_black]))
+
+            # Combine all masks: red, blue, green, off-white, and black/near-black
+            mask_markings = cv2.bitwise_or(mask_red, mask_blue)
+            mask_markings = cv2.bitwise_or(mask_markings, mask_green)
+            mask_markings = cv2.bitwise_or(mask_markings, mask_off_white)
+            mask_markings = cv2.bitwise_or(mask_markings, mask_black)
+
+            # Optionally, dilate the mask to cover more area
+            kernel = np.ones((5, 5), np.uint8)
+            mask_markings = cv2.dilate(mask_markings, kernel, iterations=1)
+
+            # Set the markings and off-white regions to white with alpha channel
+            img[mask_markings > 0] = [255, 255, 255, 255]
+
+            # Proceed with median blurring on the modified image
+            img_hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+
+
+        ######## End turnign red and blue areas to white... #####
         img_med = cv2.medianBlur(img_hsv[:,:,1], mthresh)  # Apply median blurring
         
         print(f"Image shape: {img.shape}")
