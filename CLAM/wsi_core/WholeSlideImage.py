@@ -45,6 +45,7 @@ class WholeSlideImage(object):
 
         self.microns_per_pixel_x = float(self.wsi.properties.get(openslide.PROPERTY_NAME_MPP_X, 0))
         self.microns_per_pixel_y = float(self.wsi.properties.get(openslide.PROPERTY_NAME_MPP_Y, 0))
+        self.objective_power = float(self.wsi.properties.get("openslide.objective-power"))
 
     def getOpenSlide(self):
         return self.wsi
@@ -164,7 +165,7 @@ class WholeSlideImage(object):
         img_hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)  # Convert to HSV space
 
         # Convert to HSV color space
-        remove_markings = True
+        remove_markings = False
         if remove_markings:
             ########### Detect red regions##############
             lower_red1 = np.array([0, 100, 80])

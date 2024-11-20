@@ -239,11 +239,9 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 		# Inialize WSI
 		full_path = os.path.join(source, slide)
 		WSI_object = WholeSlideImage(full_path)
-
-		# Dynamically create the corect patch size for the image given its scanner ground truth physical proterties
-		assert WSI_object.microns_per_pixel_x == WSI_object.microns_per_pixel_y
+		# # Calculate patch_size dynamically based on microns_per_patch_edge and microns_per_pixel_x
 		patch_size = int(microns_per_patch_edge/WSI_object.microns_per_pixel_x)
-		print("Patch size for this slide is", patch_size)
+		# print("Patch size for this slide is", patch_size)
 		step_size = patch_size
 
 
@@ -461,8 +459,6 @@ if __name__ == '__main__':
 				  'filter_params': filter_params,
 	 			  'patch_params': patch_params,
 				  'vis_params': vis_params}
-
-	# print(parameters)
 
 	seg_times, patch_times = seg_and_patch(**directories, **parameters,
 											microns_per_patch_edge=args.microns_per_patch_edge, 

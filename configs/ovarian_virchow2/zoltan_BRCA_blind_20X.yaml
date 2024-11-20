@@ -4,13 +4,13 @@ microns_per_patch_edge: 128
 
 patch_level: 0
 slide_ext: ".mrxs"
-model: "uni_v1"
+model: "virchow_v2"
 
 # Fully expanded paths
 raw_slides_dir: "/tank/WSI_data/Ovarian_WSIs/BRCA_blind_test/slides"
-patch_save_dir: "/tank/WSI_data/Ovarian_WSIs/BRCA_blind_test/CLAM/20X_no_markings/patches"
-csv_path: "/tank/WSI_data/Ovarian_WSIs/BRCA_blind_test/CLAM/20X_no_markings/patches/process_list_autogen.csv"
-feat_dir: "/tank/WSI_data/Ovarian_WSIs/BRCA_blind_test/CLAM/20X_no_markings/uni_v1"
+patch_save_dir: "/tank/WSI_data/Ovarian_WSIs/BRCA_blind_test/CLAM/20X/patches"
+csv_path: "/tank/WSI_data/Ovarian_WSIs/BRCA_blind_test/CLAM/20X/patches/process_list_autogen.csv"
+feat_dir: "/tank/WSI_data/Ovarian_WSIs/BRCA_blind_test/CLAM/20X/virchow_v2"
 
 batch_size: 512
 max_patches: 3000000000

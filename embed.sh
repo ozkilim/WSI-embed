@@ -20,8 +20,9 @@ run_clam_pipeline() {
     --patch \
     --stitch \
     --patch_level "$patch_level" \
-    # --process_list "$csv_path" \
     --max_patches "$max_patches"
+
+    # --process_list "$csv_path" \
 
   # Embedding
   CUDA_VISIBLE_DEVICES=$cuda_devices_patch python CLAM/extract_features_fp.py \
@@ -56,8 +57,6 @@ parse_yaml() {
 
 
 export OMP_NUM_THREADS=1
-
-
 
 
 

@@ -15,6 +15,7 @@ WSI Embed automates the process of:
 - Flexible configuration through YAML files.
 - Parallel processing capabilities for improved performance.
 
+
 ## Usage
 
 To run the pipeline, use the following command:
@@ -23,3 +24,7 @@ conda activate clam
 
 ./embed.sh configs/config.yaml
 
+
+To join features based on case_id to make patient level bags : 
+
+./patient_bag.sh 
