@@ -43,9 +43,15 @@ class WholeSlideImage(object):
         self.contours_tumor = None
         self.hdf5_file = None
 
+
+        # print(self.wsi.properties.get(openslide.PROPERTY_NAME_MPP_X, 0)) for  tif not working.... need to get the  feild! 
+
+        
+        # print("OpenSlide properties:", self.wsi.properties) TODO: some fix if the file does not have this metadata... 
+
         self.microns_per_pixel_x = float(self.wsi.properties.get(openslide.PROPERTY_NAME_MPP_X, 0))
         self.microns_per_pixel_y = float(self.wsi.properties.get(openslide.PROPERTY_NAME_MPP_Y, 0))
-        self.objective_power = float(self.wsi.properties.get("openslide.objective-power"))
+        # self.objective_power = float(self.wsi.properties.get("openslide.objective-power"))
 
     def getOpenSlide(self):
         return self.wsi
@@ -183,7 +189,7 @@ class WholeSlideImage(object):
             mask_blue = cv2.inRange(img_hsv, lower_blue, upper_blue)
 
             # Detect green regions
-            lower_green = np.array([35, 50, 50])  # Lower Hue, Saturation, and Value thresholds
+            lower_green = np.array([35, 5, 5])  # Lower Hue, Saturation, and Value thresholds to include unsaturated greens (was 35...)
             upper_green = np.array([90, 255, 255])  # Higher Hue threshold to include more greens
 
             mask_green = cv2.inRange(img_hsv, lower_green, upper_green)
@@ -201,9 +207,9 @@ class WholeSlideImage(object):
             mask_black = cv2.inRange(img_hsv, np.array([0, 0, low_value_black]), np.array([179, 255, high_value_black]))
 
             # Combine all masks: red, blue, green, off-white, and black/near-black
-            mask_markings = cv2.bitwise_or(mask_red, mask_blue)
-            mask_markings = cv2.bitwise_or(mask_markings, mask_green)
-            mask_markings = cv2.bitwise_or(mask_markings, mask_off_white)
+            # mask_markings = cv2.bitwise_or(mask_red, mask_blue)
+            mask_markings = cv2.bitwise_or(mask_green, mask_blue)
+            # mask_markings = cv2.bitwise_or(mask_markings, mask_off_white)
             mask_markings = cv2.bitwise_or(mask_markings, mask_black)
 
             # Optionally, dilate the mask to cover more area

@@ -28,3 +28,8 @@ conda activate clam
 To join features based on case_id to make patient level bags : 
 
 ./patient_bag.sh 
+
+
+Example: 
+
+python script_name.py --cohort_csv cohort.csv --base_path /path/to/slide/files --output_dir /path/to/output --overwrite
