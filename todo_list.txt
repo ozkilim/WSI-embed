@@ -1,0 +1,12 @@
+List of slides to embed for benchmarking:
+
+
+Large runs ith simple 20X and UNI ... 
+
+configs ready! 
+
+
+
+1. prostate harvard dataverse set...
+2. TMAs for OV cancer - 
+

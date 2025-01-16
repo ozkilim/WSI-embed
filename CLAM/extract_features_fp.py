@@ -86,7 +86,7 @@ parser.add_argument('--data_slide_dir', type=str, default=None)
 parser.add_argument('--slide_ext', type=str, default= '.svs')
 parser.add_argument('--csv_path', type=str, default=None)
 parser.add_argument('--feat_dir', type=str, default=None)
-parser.add_argument('--model_name', type=str, default='resnet50_trunc', choices=['resnet50_trunc', 'uni_v1', 'conch_v1','prov_giga_path','virchow','virchow_v2','H-optimus-0'])
+parser.add_argument('--model_name', type=str, default='resnet50_trunc', choices=['resnet50_trunc', 'uni_v1', 'conch_v1','prov_giga_path','virchow','virchow_v2','H-optimus-0','uni_v2'])
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--no_auto_skip', default=False, action='store_true')
 parser.add_argument('--target_patch_size', type=int, default=224)
@@ -119,48 +119,53 @@ if __name__ == '__main__':
 	loader_kwargs = {'num_workers': 8, 'pin_memory': True} if device.type == "cuda" else {}
 
 	for bag_candidate_idx in tqdm(range(total)):
-		slide_id = bags_dataset[bag_candidate_idx].split(args.slide_ext)[0]
-		bag_name = slide_id+'.h5'
-		h5_file_path = os.path.join(args.data_h5_dir, 'patches', bag_name)
-		slide_file_path = os.path.join(args.data_slide_dir, slide_id+args.slide_ext)
-		print('\nprogress: {}/{}'.format(bag_candidate_idx, total))
-		# print(slide_id)
 
-		if not args.no_auto_skip and slide_id+'.pt' in dest_files:
-			print('skipped {}'.format(slide_id))
-			continue 
-
-		output_path = os.path.join(args.feat_dir, 'h5_files', bag_name)
-		time_start = time.time()
-
-		if args.slide_ext == ".tiff":
-			wsi = tiffslide.open_slide(slide_file_path) 
-		else:
-			wsi = openslide.open_slide(slide_file_path) 
-
-		dataset = Whole_Slide_Bag_FP(file_path=h5_file_path, 
-							   		 wsi=wsi, 
-									 img_transforms=img_transforms)
-
-		loader = DataLoader(dataset=dataset, batch_size=args.batch_size, **loader_kwargs)
-			
 		try:
-			output_file_path = compute_w_loader(output_path, loader=loader, model=model, device=device, model_name=args.model_name, verbose=1)
+			slide_id = bags_dataset[bag_candidate_idx].split(args.slide_ext)[0]
+			bag_name = slide_id+'.h5'
+			h5_file_path = os.path.join(args.data_h5_dir, 'patches', bag_name)
+			slide_file_path = os.path.join(args.data_slide_dir, slide_id+args.slide_ext)
+			print('\nprogress: {}/{}'.format(bag_candidate_idx, total))
+
+			if not args.no_auto_skip and slide_id+'.pt' in dest_files:
+				print('skipped {}'.format(slide_id))
+				continue 
+
+			output_path = os.path.join(args.feat_dir, 'h5_files', bag_name)
+			time_start = time.time()
+
+			if args.slide_ext == ".tiff":
+				wsi = tiffslide.open_slide(slide_file_path) 
+			else:
+				wsi = openslide.open_slide(slide_file_path) 
+
+			dataset = Whole_Slide_Bag_FP(file_path=h5_file_path, 
+										wsi=wsi, 
+										img_transforms=img_transforms)
+
+			loader = DataLoader(dataset=dataset, batch_size=args.batch_size, **loader_kwargs)
+				
+			try:
+				output_file_path = compute_w_loader(output_path, loader=loader, model=model, device=device, model_name=args.model_name, verbose=1)
+			except Exception as e:
+				print("Error here")
+				print(e)
+					
+			time_elapsed = time.time() - time_start
+			print('\ncomputing features for {} took {} s'.format(output_file_path, time_elapsed))
+
+			with h5py.File(output_file_path, "r") as file:
+				features = file['features'][:]
+				print('features size: ', features.shape)
+				print('coordinates size: ', file['coords'].shape)
+
+			features = torch.from_numpy(features)
+			bag_base, _ = os.path.splitext(bag_name)
+			torch.save(features, os.path.join(args.feat_dir, 'pt_files', bag_base+'.pt'))
+
 		except Exception as e:
-			print("Error here")
-			print(e)
-				  
-		time_elapsed = time.time() - time_start
-		print('\ncomputing features for {} took {} s'.format(output_file_path, time_elapsed))
+			print(f"An error occurred while saving the process list or accessing the index: {e}") 
 
-		with h5py.File(output_file_path, "r") as file:
-			features = file['features'][:]
-			print('features size: ', features.shape)
-			print('coordinates size: ', file['coords'].shape)
-
-		features = torch.from_numpy(features)
-		bag_base, _ = os.path.splitext(bag_name)
-		torch.save(features, os.path.join(args.feat_dir, 'pt_files', bag_base+'.pt'))
 
 
 

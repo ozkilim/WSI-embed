@@ -1,0 +1,19 @@
+# Define base paths
+
+microns_per_patch_edge: 128 
+
+patch_level: 0
+slide_ext: ".svs"
+model: "uni_v1"
+
+# Fully expanded paths
+raw_slides_dir: "/tank/WSI_data/prostate/TCGA-PRAD/FFPE_slides"
+patch_save_dir: "/tank/WSI_data/prostate/TCGA-PRAD/CLAM/20X/patches"
+csv_path: "/tank/WSI_data/prostate/TCGA-PRAD/CLAM/20X/patches/process_list_autogen.csv"
+feat_dir: "/tank/WSI_data/prostate/TCGA-PRAD/CLAM/20X/uni_v1"
+
+batch_size: 512
+max_patches: 3000000000
+cuda_devices_patch: "0,1,2"
+cuda_devices_embed: "0,1,2"
+preset: "CLAM/presets/bwh_biopsy.csv"

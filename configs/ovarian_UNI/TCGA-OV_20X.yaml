@@ -1,6 +1,6 @@
 # Define base paths
 
-microns_per_patch_edge: 128 
+microns_per_patch_edge: 256 
 
 patch_level: 0
 slide_ext: ".svs"
@@ -8,9 +8,9 @@ model: "uni_v1"
 
 # Fully expanded paths
 raw_slides_dir: "/tank/WSI_data/Ovarian_WSIs/TCGA-OV/FFPE_slides"
-patch_save_dir: "/tank/WSI_data/Ovarian_WSIs/TCGA-OV/CLAM/20X/patches"
-csv_path: "/tank/WSI_data/Ovarian_WSIs/TCGA-OV/CLAM/20X/patches/process_list_autogen.csv"
-feat_dir: "/tank/WSI_data/Ovarian_WSIs/TCGA-OV/CLAM/20X/uni_v1"
+patch_save_dir: "/tank/WSI_data/Ovarian_WSIs/TCGA-OV/CLAM/256ppp/patches"
+csv_path: "/tank/WSI_data/Ovarian_WSIs/TCGA-OV/CLAM/256ppp/patches/process_list_autogen.csv"
+feat_dir: "/tank/WSI_data/Ovarian_WSIs/TCGA-OV/CLAM/256ppp/uni_v1"
 
 batch_size: 512
 max_patches: 3000000000

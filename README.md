@@ -32,4 +32,10 @@ To join features based on case_id to make patient level bags :
 
 Example: 
 
-python script_name.py --cohort_csv cohort.csv --base_path /path/to/slide/files --output_dir /path/to/output --overwrite
+python patient_bag.py --cohort_csv cohort.csv --base_path /path/to/slide/files --output_dir /path/to/output --overwrite
+
+
+
+TODO:
+add way to comtrolll marker removal
+Add way to ensenble multiple models stacked like VirchowV2 and Conch as shown in https://www.arxiv.org/pdf/2408.15823

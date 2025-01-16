@@ -7,22 +7,35 @@ run_clam_pipeline() {
   local csv_path=$3
   local slide_ext=$4
   local feat_dir=$5
+  local microns_per_pixel=$6  # Accept microns_per_pixel as an additional argument
 
   echo "Running pipeline for slides in: $raw_slides_dir"
 
   # Patching
-  CUDA_VISIBLE_DEVICES=$cuda_devices_patch python CLAM/create_patches_fp.py \
-    --source "$raw_slides_dir" \
-    --save_dir "$patch_save_dir" \
-    --microns_per_patch_edge "$microns_per_patch_edge" \
-    --preset "$preset" \
-    --seg \
-    --patch \
-    --stitch \
-    --patch_level "$patch_level" \
-    --max_patches "$max_patches"
-
-    # --process_list "$csv_path" \
+  if [ "$microns_per_pixel" = "None" ]; then
+    CUDA_VISIBLE_DEVICES=$cuda_devices_patch python CLAM/create_patches_fp.py \
+      --source "$raw_slides_dir" \
+      --save_dir "$patch_save_dir" \
+      --microns_per_patch_edge "$microns_per_patch_edge" \
+      --preset "$preset" \
+      --seg \
+      --patch \
+      --stitch \
+      --patch_level "$patch_level" \
+      --max_patches "$max_patches"
+  else
+    CUDA_VISIBLE_DEVICES=$cuda_devices_patch python CLAM/create_patches_fp.py \
+      --source "$raw_slides_dir" \
+      --save_dir "$patch_save_dir" \
+      --microns_per_patch_edge "$microns_per_patch_edge" \
+      --preset "$preset" \
+      --seg \
+      --patch \
+      --stitch \
+      --patch_level "$patch_level" \
+      --max_patches "$max_patches" \
+      --microns_per_pixel "$microns_per_pixel"
+  fi
 
   # Embedding
   CUDA_VISIBLE_DEVICES=$cuda_devices_patch python CLAM/extract_features_fp.py \
@@ -55,10 +68,7 @@ parse_yaml() {
    }'
 }
 
-
 export OMP_NUM_THREADS=1
-
-
 
 # Check if config file is provided
 if [ "$#" -ne 1 ]; then
@@ -69,29 +79,8 @@ fi
 # Read configuration
 eval $(parse_yaml "$1")
 
-
-
-
-# TODO: somewthing that chacks the magnification before running and offer cli to pick ... or something ....
-# Load the first slide from the raw slides directory and find its magnification
-
-# Get the first slide path using your method
-# first_slide_path=$(ls "$raw_slides_dir" | head -1 2>/dev/null)
-# first_slide_path="$raw_slides_dir/$first_slide_path"
-# echo "First slide path: $first_slide_path"
-
-# # Call the Python script to get the magnification
-# slide_magnification=$(python3 get_magnification.py "$first_slide_path" 2>&1)
-
-# # Check if magnification was obtained
-# if [[ "$slide_magnification" != "Unknown" && "$slide_magnification" != Error* ]]; then
-#     echo "Successfully loaded the file and obtained the magnification."
-# else
-#     echo "Failed to load the file or obtain the magnification."
-#     echo "Error details: $slide_magnification"
-# fi
-
-# echo "Magnification of the first slide: $slide_magnification"
+# Check if microns_per_pixel is defined; set to None if not
+microns_per_pixel="${microns_per_pixel:-None}"
 
 # Run pipeline for the dataset
-run_clam_pipeline "$raw_slides_dir" "$patch_save_dir" "$csv_path" "$slide_ext" "$feat_dir"
+run_clam_pipeline "$raw_slides_dir" "$patch_save_dir" "$csv_path" "$slide_ext" "$feat_dir" "$microns_per_pixel"

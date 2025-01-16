@@ -20,6 +20,59 @@ from utils.file_utils import load_pkl, save_pkl
 
 Image.MAX_IMAGE_PIXELS = 933120000
 
+
+
+def calculate_microns_per_pixel(wsi):
+    """
+    Dynamically calculate microns per pixel for x and y axes based on available metadata fields.
+    
+    Args:
+        wsi: OpenSlide object with properties attribute.
+
+    Returns:
+        Tuple of microns_per_pixel_x, microns_per_pixel_y.
+    """
+    try:
+        # Check for OpenSlide MPP properties first
+        mpp_x = wsi.properties.get(openslide.PROPERTY_NAME_MPP_X)
+        mpp_y = wsi.properties.get(openslide.PROPERTY_NAME_MPP_Y)
+
+        print(f"MPP X: {mpp_x}, MPP Y: {mpp_y}")
+
+        if mpp_x and mpp_y:
+            return float(mpp_x), float(mpp_y)
+
+        # Fall back to TIFF resolution if MPP values are not available
+        x_res = wsi.properties.get('tiff.XResolution')
+        y_res = wsi.properties.get('tiff.YResolution')
+        resolution_unit = wsi.properties.get('tiff.ResolutionUnit', 'unknown').lower()
+
+        print(f"X Resolution: {x_res}, Y Resolution: {y_res}, Resolution Unit: {resolution_unit}")
+        
+        if x_res and y_res:
+            # Resolution unit determines the conversion to microns
+            # Default: 'centimeter', but could be 'inch'
+            if resolution_unit == 'centimeter':
+                microns_per_pixel_x = 10_000 / float(x_res)
+                microns_per_pixel_y = 10_000 / float(y_res)
+            elif resolution_unit == 'inch':
+                microns_per_pixel_x = 25_400 / float(x_res)  # 1 inch = 25,400 microns
+                microns_per_pixel_y = 25_400 / float(y_res)
+            else:
+                raise ValueError(f"Unknown resolution unit: {resolution_unit}")
+
+            print(f"Calculated Microns per Pixel X: {microns_per_pixel_x}, Y: {microns_per_pixel_y}")
+
+            return microns_per_pixel_x, microns_per_pixel_y
+
+        # If neither method works, raise an error
+        raise ValueError("Metadata for calculating microns per pixel is not available.")
+
+    except Exception as e:
+        print(f"Error calculating microns per pixel: {e}")
+        return 0, 0  # Default to 0 if calculation fails
+
+
 class WholeSlideImage(object):
     def __init__(self, path):
 
@@ -46,12 +99,11 @@ class WholeSlideImage(object):
 
         # print(self.wsi.properties.get(openslide.PROPERTY_NAME_MPP_X, 0)) for  tif not working.... need to get the  feild! 
 
-        
-        # print("OpenSlide properties:", self.wsi.properties) TODO: some fix if the file does not have this metadata... 
+        # print("OpenSlide properties:", self.wsi.properties) #TODO: some fix if the file does not have this metadata... 
+        # Usage in your code
+        self.microns_per_pixel_x, self.microns_per_pixel_y = calculate_microns_per_pixel(self.wsi)
 
-        self.microns_per_pixel_x = float(self.wsi.properties.get(openslide.PROPERTY_NAME_MPP_X, 0))
-        self.microns_per_pixel_y = float(self.wsi.properties.get(openslide.PROPERTY_NAME_MPP_Y, 0))
-        # self.objective_power = float(self.wsi.properties.get("openslide.objective-power"))
+        print(self.microns_per_pixel_x)
 
     def getOpenSlide(self):
         return self.wsi
