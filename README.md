@@ -53,6 +53,45 @@ slide_ext: ".svs"
 # Name of the model used for generating embeddings (must be supported by the pipeline)
 model: "uni_v2"
 
+# === MARKING REMOVAL CONFIGURATION ===
+
+# Enable/disable colored marking removal during tissue segmentation (default: false)
+remove_markings: false
+
+# Optional: disable specific colors when remove_markings is true
+# By default, all colors (red, blue, green, black, off_white) are removed when remove_markings is enabled
+# Uncomment and set to true to disable specific color removal:
+# disable_red_removal: false
+# disable_blue_removal: false  
+# disable_green_removal: false
+# disable_black_removal: false
+# disable_off_white_removal: false
+
+# Advanced: Custom HSV color ranges (optional - uses sensible defaults if not specified)
+# marking_colors:
+#   red:
+#     enabled: true
+#     lower1: [0, 100, 80]    # First red range (low hue)
+#     upper1: [10, 255, 255]
+#     lower2: [170, 100, 80]  # Second red range (high hue)
+#     upper2: [180, 255, 255]
+#   blue:
+#     enabled: true
+#     lower: [100, 100, 80]
+#     upper: [130, 255, 255]
+#   green:
+#     enabled: true
+#     lower: [35, 5, 5]
+#     upper: [90, 255, 255]
+#   off_white:
+#     enabled: true
+#     lower: [0, 0, 200]
+#     upper: [179, 30, 255]
+#   black:
+#     enabled: true
+#     lower: [0, 0, 0]
+#     upper: [179, 255, 80]
+
 # === INPUT / OUTPUT PATHS ===
 
 # Directory where raw WSIs are stored
