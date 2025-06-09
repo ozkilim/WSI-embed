@@ -11,6 +11,29 @@ run_clam_pipeline() {
 
   echo "Running pipeline for slides in: $raw_slides_dir"
 
+  # Build marking removal arguments
+  marking_args=""
+  if [ "${remove_markings:-false}" = "true" ]; then
+    marking_args="--remove_markings"
+    
+    # Check for disabled color removals (only add if explicitly disabled)
+    if [ "${disable_red_removal:-false}" = "true" ]; then
+      marking_args="$marking_args --disable_red_removal"
+    fi
+    if [ "${disable_blue_removal:-false}" = "true" ]; then
+      marking_args="$marking_args --disable_blue_removal"
+    fi
+    if [ "${disable_green_removal:-false}" = "true" ]; then
+      marking_args="$marking_args --disable_green_removal"
+    fi
+    if [ "${disable_black_removal:-false}" = "true" ]; then
+      marking_args="$marking_args --disable_black_removal"
+    fi
+    if [ "${disable_off_white_removal:-false}" = "true" ]; then
+      marking_args="$marking_args --disable_off_white_removal"
+    fi
+  fi
+
   # Patching
   if [ "$microns_per_pixel" = "None" ]; then
     CUDA_VISIBLE_DEVICES=$cuda_devices_patch python CLAM/create_patches_fp.py \
@@ -22,7 +45,8 @@ run_clam_pipeline() {
       --patch \
       --stitch \
       --patch_level "$patch_level" \
-      --max_patches "$max_patches"
+      --max_patches "$max_patches" \
+      $marking_args
   else
     CUDA_VISIBLE_DEVICES=$cuda_devices_patch python CLAM/create_patches_fp.py \
       --source "$raw_slides_dir" \
@@ -34,7 +58,8 @@ run_clam_pipeline() {
       --stitch \
       --patch_level "$patch_level" \
       --max_patches "$max_patches" \
-      --microns_per_pixel "$microns_per_pixel"
+      --microns_per_pixel "$microns_per_pixel" \
+      $marking_args
   fi
 
   # Embedding

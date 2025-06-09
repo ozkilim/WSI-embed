@@ -102,9 +102,7 @@ class WholeSlideImage(object):
         # print("OpenSlide properties:", self.wsi.properties) #TODO: some fix if the file does not have this metadata... 
         # Usage in your code
         self.microns_per_pixel_x, self.microns_per_pixel_y = calculate_microns_per_pixel(self.wsi)
-
-        print(self.microns_per_pixel_x)
-
+     
     def getOpenSlide(self):
         return self.wsi
 
@@ -157,10 +155,43 @@ class WholeSlideImage(object):
         save_pkl(mask_file, asset_dict)
 
     def segmentTissue(self, seg_level=0, sthresh=20, sthresh_up = 255, mthresh=7, close = 0, use_otsu=False, 
-                            filter_params={'a_t':100}, ref_patch_size=512, exclude_ids=[], keep_ids=[]):
+                            filter_params={'a_t':100}, ref_patch_size=512, exclude_ids=[], keep_ids=[], 
+                            remove_markings=False, marking_colors=None):
         """
             Segment the tissue via HSV -> Median thresholding -> Binary threshold
         """
+        
+        # Default marking colors configuration
+        if marking_colors is None:
+            marking_colors = {
+                'red': {
+                    'enabled': True,
+                    'lower1': [0, 100, 80],
+                    'upper1': [10, 255, 255],
+                    'lower2': [170, 100, 80],
+                    'upper2': [180, 255, 255]
+                },
+                'blue': {
+                    'enabled': True,
+                    'lower': [100, 100, 80],
+                    'upper': [130, 255, 255]
+                },
+                'green': {
+                    'enabled': True,
+                    'lower': [35, 5, 5],
+                    'upper': [90, 255, 255]
+                },
+                'off_white': {
+                    'enabled': True,
+                    'lower': [0, 0, 200],
+                    'upper': [179, 30, 255]
+                },
+                'black': {
+                    'enabled': True,
+                    'lower': [0, 0, 0],
+                    'upper': [179, 255, 80]
+                }
+            }
         
         def _filter_contours(contours, hierarchy, filter_params):
             """
@@ -222,60 +253,68 @@ class WholeSlideImage(object):
 
         img_hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)  # Convert to HSV space
 
-        # Convert to HSV color space
-        remove_markings = False
+        # Apply marking removal if enabled
         if remove_markings:
-            ########### Detect red regions##############
-            lower_red1 = np.array([0, 100, 80])
-            upper_red1 = np.array([10, 255, 255])
-            lower_red2 = np.array([170, 100, 80])
-            upper_red2 = np.array([180, 255, 255])
+            print("Applying marking removal with configured colors...")
+            masks = []
+            
+            # Process red regions (has two ranges)
+            if marking_colors['red']['enabled']:
+                lower_red1 = np.array(marking_colors['red']['lower1'])
+                upper_red1 = np.array(marking_colors['red']['upper1'])
+                lower_red2 = np.array(marking_colors['red']['lower2'])
+                upper_red2 = np.array(marking_colors['red']['upper2'])
+                
+                mask_red1 = cv2.inRange(img_hsv, lower_red1, upper_red1)
+                mask_red2 = cv2.inRange(img_hsv, lower_red2, upper_red2)
+                mask_red = cv2.bitwise_or(mask_red1, mask_red2)
+                masks.append(mask_red)
+            
+            # Process blue regions
+            if marking_colors['blue']['enabled']:
+                lower_blue = np.array(marking_colors['blue']['lower'])
+                upper_blue = np.array(marking_colors['blue']['upper'])
+                mask_blue = cv2.inRange(img_hsv, lower_blue, upper_blue)
+                masks.append(mask_blue)
+            
+            # Process green regions
+            if marking_colors['green']['enabled']:
+                lower_green = np.array(marking_colors['green']['lower'])
+                upper_green = np.array(marking_colors['green']['upper'])
+                mask_green = cv2.inRange(img_hsv, lower_green, upper_green)
+                masks.append(mask_green)
+            
+            # Process off-white regions
+            if marking_colors['off_white']['enabled']:
+                lower_off_white = np.array(marking_colors['off_white']['lower'])
+                upper_off_white = np.array(marking_colors['off_white']['upper'])
+                mask_off_white = cv2.inRange(img_hsv, lower_off_white, upper_off_white)
+                masks.append(mask_off_white)
+            
+            # Process black and near-black regions
+            if marking_colors['black']['enabled']:
+                lower_black = np.array(marking_colors['black']['lower'])
+                upper_black = np.array(marking_colors['black']['upper'])
+                mask_black = cv2.inRange(img_hsv, lower_black, upper_black)
+                masks.append(mask_black)
+            
+            # Combine all enabled masks
+            if masks:
+                mask_markings = masks[0]
+                for mask in masks[1:]:
+                    mask_markings = cv2.bitwise_or(mask_markings, mask)
+                
+                # Optionally, dilate the mask to cover more area
+                kernel = np.ones((5, 5), np.uint8)
+                mask_markings = cv2.dilate(mask_markings, kernel, iterations=1)
+                
+                # Set the markings regions to white
+                img[mask_markings > 0] = [255, 255, 255, 255]
+                
+                # Update HSV image after modification
+                img_hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
 
-            mask_red1 = cv2.inRange(img_hsv, lower_red1, upper_red1)
-            mask_red2 = cv2.inRange(img_hsv, lower_red2, upper_red2)
-            mask_red = cv2.bitwise_or(mask_red1, mask_red2)
-
-            # Detect blue regions
-            lower_blue = np.array([100, 100, 80])
-            upper_blue = np.array([130, 255, 255])
-            mask_blue = cv2.inRange(img_hsv, lower_blue, upper_blue)
-
-            # Detect green regions
-            lower_green = np.array([35, 5, 5])  # Lower Hue, Saturation, and Value thresholds to include unsaturated greens (was 35...)
-            upper_green = np.array([90, 255, 255])  # Higher Hue threshold to include more greens
-
-            mask_green = cv2.inRange(img_hsv, lower_green, upper_green)
-
-            # Detect off-white regions
-            low_saturation = 0
-            high_saturation = 30  # Adjust as needed
-            low_value = 200       # Adjust as needed
-            high_value = 255
-            mask_off_white = cv2.inRange(img_hsv, np.array([0, low_saturation, low_value]), np.array([179, high_saturation, high_value]))
-
-            # Detect black and near-black regions
-            low_value_black = 0
-            high_value_black = 80  # Adjusted to include near-black regions
-            mask_black = cv2.inRange(img_hsv, np.array([0, 0, low_value_black]), np.array([179, 255, high_value_black]))
-
-            # Combine all masks: red, blue, green, off-white, and black/near-black
-            # mask_markings = cv2.bitwise_or(mask_red, mask_blue)
-            mask_markings = cv2.bitwise_or(mask_green, mask_blue)
-            # mask_markings = cv2.bitwise_or(mask_markings, mask_off_white)
-            mask_markings = cv2.bitwise_or(mask_markings, mask_black)
-
-            # Optionally, dilate the mask to cover more area
-            kernel = np.ones((5, 5), np.uint8)
-            mask_markings = cv2.dilate(mask_markings, kernel, iterations=1)
-
-            # Set the markings and off-white regions to white with alpha channel
-            img[mask_markings > 0] = [255, 255, 255, 255]
-
-            # Proceed with median blurring on the modified image
-            img_hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-
-
-        ######## End turnign red and blue areas to white... #####
+        # Continue with median blurring on the (potentially modified) image
         img_med = cv2.medianBlur(img_hsv[:,:,1], mthresh)  # Apply median blurring
         
         print(f"Image shape: {img.shape}")

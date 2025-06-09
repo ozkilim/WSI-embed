@@ -91,6 +91,7 @@ class Whole_Slide_Bag_FP(Dataset):
 class Dataset_All_Bags(Dataset):
 
 	def __init__(self, csv_path):
+		
 		self.df = pd.read_csv(csv_path)
 	
 	def __len__(self):

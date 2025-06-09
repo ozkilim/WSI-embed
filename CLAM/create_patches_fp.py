@@ -181,7 +181,7 @@ def patching(WSI_object, **kwargs):
 def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_dir, 
 				  microns_per_patch_edge=128, 
 				  seg_params = {'seg_level': -1, 'sthresh': 8, 'mthresh': 7, 'close': 4, 'use_otsu': False,
-				  'keep_ids': 'none', 'exclude_ids': 'none'},
+				  'keep_ids': 'none', 'exclude_ids': 'none', 'remove_markings': False},
 				  filter_params = {'a_t':100, 'a_h': 16, 'max_n_holes':8}, 
 				  vis_params = {'vis_level': -1, 'line_thickness': 500},
 				  patch_params = {'use_padding': True, 'contour_fn': 'four_pt'},
@@ -294,7 +294,14 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 				for key in seg_params.keys():
 					if legacy_support and key == 'seg_level':
 						df.loc[idx, key] = -1
+					# Skip marking_colors as it's not stored in the dataframe
+					if key == 'marking_colors':
+						continue
 					current_seg_params.update({key: df.loc[idx, key]})
+				
+				# Add marking_colors from the original seg_params if remove_markings is enabled
+				if current_seg_params.get('remove_markings', False) and 'marking_colors' in seg_params:
+					current_seg_params['marking_colors'] = seg_params['marking_colors']
 				
 				print("Segmentation parameters:", current_seg_params)
 
@@ -427,6 +434,20 @@ parser.add_argument('--microns_per_pixel',  type = str, default=None,
 parser.add_argument('--max_patches',  type = int, default=None,
 					help='Maximum number of patches we can take from a WSI. if WSI makes more than this we sample.')
 
+# Marking removal arguments
+parser.add_argument('--remove_markings', action='store_true', default=False,
+					help='Enable removal of colored markings from WSI during segmentation')
+parser.add_argument('--disable_red_removal', action='store_true', default=False,
+					help='Disable red color removal even when remove_markings is enabled')
+parser.add_argument('--disable_blue_removal', action='store_true', default=False,
+					help='Disable blue color removal even when remove_markings is enabled')
+parser.add_argument('--disable_green_removal', action='store_true', default=False,
+					help='Disable green color removal even when remove_markings is enabled')
+parser.add_argument('--disable_black_removal', action='store_true', default=False,
+					help='Disable black/near-black color removal even when remove_markings is enabled')
+parser.add_argument('--disable_off_white_removal', action='store_true', default=False,
+					help='Disable off-white color removal even when remove_markings is enabled')
+
 if __name__ == '__main__':
 	args = parser.parse_args()
 
@@ -457,7 +478,7 @@ if __name__ == '__main__':
 			os.makedirs(val, exist_ok=True)
 
 	seg_params = {'seg_level': -1, 'sthresh': 8, 'mthresh': 7, 'close': 4, 'use_otsu': False,
-				  'keep_ids': 'none', 'exclude_ids': 'none'}
+				  'keep_ids': 'none', 'exclude_ids': 'none', 'remove_markings': args.remove_markings}
 	filter_params = {'a_t':100, 'a_h': 16, 'max_n_holes':8}
 	vis_params = {'vis_level': -1, 'line_thickness': 250}
 	patch_params = {'use_padding': True, 'contour_fn': 'four_pt'}
@@ -465,17 +486,96 @@ if __name__ == '__main__':
 	if args.preset:
 		preset_df = pd.read_csv(args.preset)
 		for key in seg_params.keys():
-			seg_params[key] = preset_df.loc[0, key]
+			if key in preset_df.columns:
+				seg_params[key] = preset_df.loc[0, key]
 
 		for key in filter_params.keys():
-			filter_params[key] = preset_df.loc[0, key]
+			if key in preset_df.columns:
+				filter_params[key] = preset_df.loc[0, key]
 
 		for key in vis_params.keys():
-			vis_params[key] = preset_df.loc[0, key]
+			if key in preset_df.columns:
+				vis_params[key] = preset_df.loc[0, key]
 
 		for key in patch_params.keys():
-			patch_params[key] = preset_df.loc[0, key]
-	
+			if key in preset_df.columns:
+				patch_params[key] = preset_df.loc[0, key]
+		
+		# Load marking colors from preset if available
+		if 'remove_markings' in preset_df.columns and preset_df.loc[0, 'remove_markings']:
+			marking_colors = {
+				'red': {
+					'enabled': preset_df.loc[0, 'red_enabled'] if 'red_enabled' in preset_df.columns else True,
+					'lower1': eval(preset_df.loc[0, 'red_lower1']) if 'red_lower1' in preset_df.columns else [0, 100, 80],
+					'upper1': eval(preset_df.loc[0, 'red_upper1']) if 'red_upper1' in preset_df.columns else [10, 255, 255],
+					'lower2': eval(preset_df.loc[0, 'red_lower2']) if 'red_lower2' in preset_df.columns else [170, 100, 80],
+					'upper2': eval(preset_df.loc[0, 'red_upper2']) if 'red_upper2' in preset_df.columns else [180, 255, 255]
+				},
+				'blue': {
+					'enabled': preset_df.loc[0, 'blue_enabled'] if 'blue_enabled' in preset_df.columns else True,
+					'lower': eval(preset_df.loc[0, 'blue_lower']) if 'blue_lower' in preset_df.columns else [100, 100, 80],
+					'upper': eval(preset_df.loc[0, 'blue_upper']) if 'blue_upper' in preset_df.columns else [130, 255, 255]
+				},
+				'green': {
+					'enabled': preset_df.loc[0, 'green_enabled'] if 'green_enabled' in preset_df.columns else True,
+					'lower': eval(preset_df.loc[0, 'green_lower']) if 'green_lower' in preset_df.columns else [35, 5, 5],
+					'upper': eval(preset_df.loc[0, 'green_upper']) if 'green_upper' in preset_df.columns else [90, 255, 255]
+				},
+				'off_white': {
+					'enabled': preset_df.loc[0, 'off_white_enabled'] if 'off_white_enabled' in preset_df.columns else True,
+					'lower': eval(preset_df.loc[0, 'off_white_lower']) if 'off_white_lower' in preset_df.columns else [0, 0, 200],
+					'upper': eval(preset_df.loc[0, 'off_white_upper']) if 'off_white_upper' in preset_df.columns else [179, 30, 255]
+				},
+				'black': {
+					'enabled': preset_df.loc[0, 'black_enabled'] if 'black_enabled' in preset_df.columns else True,
+					'lower': eval(preset_df.loc[0, 'black_lower']) if 'black_lower' in preset_df.columns else [0, 0, 0],
+					'upper': eval(preset_df.loc[0, 'black_upper']) if 'black_upper' in preset_df.columns else [179, 255, 80]
+				}
+			}
+			seg_params['marking_colors'] = marking_colors
+
+	# Set up marking colors configuration based on command line flags (override preset if needed)
+	if args.remove_markings:
+		marking_colors = {
+			'red': {
+				'enabled': not args.disable_red_removal,  # Enabled by default, disabled only if explicitly requested
+				'lower1': [0, 100, 80],
+				'upper1': [10, 255, 255],
+				'lower2': [170, 100, 80],
+				'upper2': [180, 255, 255]
+			},
+			'blue': {
+				'enabled': not args.disable_blue_removal,  # Enabled by default
+				'lower': [100, 100, 80],
+				'upper': [130, 255, 255]
+			},
+			'green': {
+				'enabled': not args.disable_green_removal,  # Enabled by default
+				'lower': [35, 5, 5],
+				'upper': [90, 255, 255]
+			},
+			'off_white': {
+				'enabled': not args.disable_off_white_removal,  # Enabled by default
+				'lower': [0, 0, 200],
+				'upper': [179, 30, 255]
+			},
+			'black': {
+				'enabled': not args.disable_black_removal,  # Enabled by default
+				'lower': [0, 0, 0],
+				'upper': [179, 255, 80]
+			}
+		}
+		
+		# Validate that at least one color is enabled
+		enabled_colors = [color for color, config in marking_colors.items() if config['enabled']]
+		if not enabled_colors:
+			raise ValueError("Error: remove_markings is enabled but no colors are enabled for removal. "
+							"At least one color must be enabled when using marking removal.")
+		
+		print(f"Marking removal enabled for colors: {', '.join(enabled_colors)}")
+		seg_params['marking_colors'] = marking_colors
+		seg_params['remove_markings'] = True
+
 	parameters = {'seg_params': seg_params,
 				  'filter_params': filter_params,
 	 			  'patch_params': patch_params,
