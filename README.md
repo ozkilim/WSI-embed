@@ -128,6 +128,68 @@ preset: "CLAM/presets/bwh_biopsy.csv"
 ./embed.sh configs/config.yaml
 ```
 
+## 🎨 Marking Removal Feature
+
+The pipeline now supports automatic removal of colored markings (pen marks, annotations, artifacts) from WSI tissue during segmentation. This is useful for slides that contain:
+
+- **Red/blue pen markings** from pathologists
+- **Green markings** from digitization artifacts  
+- **Black markings** from various sources
+- **Off-white patches** that may interfere with tissue detection
+
+### Basic Usage
+
+Simply enable marking removal in your config file:
+
+```yaml
+remove_markings: true
+```
+
+By default, this will remove all 5 color types (red, blue, green, black, off-white) using pre-configured HSV color ranges.
+
+### Advanced Configuration
+
+**Disable specific colors:**
+```yaml
+remove_markings: true
+disable_green_removal: true  # Keep green markings, remove others
+disable_red_removal: true    # Keep red markings, remove others
+```
+
+**Custom color ranges:**
+```yaml
+remove_markings: true
+marking_colors:
+  red:
+    enabled: true
+    lower1: [0, 120, 100]     # Adjust HSV ranges as needed
+    upper1: [8, 255, 255]
+    lower2: [172, 120, 100]
+    upper2: [180, 255, 255]
+  # ... other colors
+```
+
+### Command Line Usage
+
+You can also control marking removal via command line arguments:
+
+```bash
+python CLAM/create_patches_fp.py \
+  --source /path/to/slides \
+  --save_dir /path/to/output \
+  --remove_markings \
+  --disable_green_removal \
+  --seg --patch
+```
+
+### How It Works
+
+1. **HSV Color Space**: Converts image to HSV for robust color detection
+2. **Multi-Range Detection**: Red markings use two HSV ranges to handle hue wraparound
+3. **Morphological Processing**: Applies dilation to ensure complete removal
+4. **White Replacement**: Detected marking regions are set to white before tissue segmentation
+
+---
 
 ### To join features based on case_id and create patient-level bags:
 
@@ -145,5 +207,7 @@ python patient_bag.py \
 
 ## TODO:
 
- - Add control over marker removal
+ - ✅ ~~Add control over marker removal~~ (COMPLETED)
  - Add support for ensembling multiple models (e.g., VirchowV2 + Conch) as demonstrated in
+ - Add batch processing optimization for very large cohorts
+ - Add visualization tools for marking removal results
